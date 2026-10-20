@@ -64,9 +64,11 @@ describe('Controller', () => {
 	});
 
 	it('should return override', async () => {
-		const res = await request(app.callback()).get('/index/override');
-		expect(res.text).toBe('override');
-		expect(res.status).toBe(200);
+		const res = await request(app.callback()).get('/index/overrideBasePath');
+		expect(res.status).toBe(404);
+		const res2 = await request(app.callback()).get('/overrideBasePath');
+		expect(res2.text).toBe('override');
+		expect(res2.status).toBe(200);
 	});
 
 	it('should return object', async () => {
