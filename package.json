@@ -15,7 +15,8 @@
 	},
 	"sideEffects": false,
 	"files": [
-		"dist"
+		"dist",
+		"README.en.md"
 	],
 	"scripts": {
 		"build": "rollup -c",
