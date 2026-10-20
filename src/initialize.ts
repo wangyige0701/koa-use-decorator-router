@@ -177,25 +177,21 @@ export async function initialize(
 }
 
 function mergePath(controllerPath: string, routePath: string, isOverrideControllerPath: boolean) {
-	const base = isOverrideControllerPath
-		? '/'
-		: controllerPath.endsWith('/')
-			? controllerPath.slice(0, -1)
-			: controllerPath;
-	if (routePath === '/') {
-		return base || '/';
-	}
+	const normalizedRoutePath = routePath === '/' ? '/' : `/${routePath.replace(/^\/+/, '')}`;
 	if (isOverrideControllerPath) {
-		return routePath.startsWith('/') ? routePath : '/' + routePath;
+		return normalizedRoutePath;
 	}
-	return base + routePath;
+
+	const normalizedControllerPath = controllerPath.replace(/^\/+|\/+$/g, '');
+	const base = normalizedControllerPath ? `/${normalizedControllerPath}` : '';
+	return normalizedRoutePath === '/' ? base || '/' : base + normalizedRoutePath;
 }
 
 function getRoutePath(routeItem: ControllerMethod) {
 	return isString(routeItem.path) && routeItem.path
-		? !routeItem.path.startsWith('/')
-			? '/'
-			: '' + routeItem.path
+		? routeItem.path.startsWith('/')
+			? routeItem.path
+			: `/${routeItem.path}`
 		: '/';
 }
 
