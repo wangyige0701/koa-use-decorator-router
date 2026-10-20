@@ -183,6 +183,8 @@ routerDecorator.acceptAnyControllerName();
 
 `@Controller(basePath)` 声明控制器基础路径。`HttpMethod` 提供 `All`、`Get`、`Post`、`Put`、`Delete`、`Options`、`Head` 和 `Patch` 方法装饰器。控制器方法的返回值或 Promise 结果会写入 `ctx.body`。
 
+默认情况下，每次请求都会创建新的控制器实例；使用 `@Singleton` 装饰控制器后才会跨请求复用同一实例。只有通过参数装饰器注入的值会传给控制器方法，未装饰的参数位置为 `undefined`。
+
 ```ts
 import { Controller, HttpMethod } from 'koa-use-decorator-router';
 
@@ -269,7 +271,7 @@ app.use(async (ctx, next) => {
 
 ### 成员属性注入
 
-`@Inject()` 使用 `design:type` 元数据推断构造函数，`@Inject(Constructor)` 则显式指定构造函数。使用类型反射时必须导入运行时值，不能使用 `import type`。
+无参 `@Inject()` 依赖 TypeScript 编译或打包工具为成员属性正确生成 `design:type` 元数据。即使启用了 `experimentalDecorators` 和 `emitDecoratorMetadata`，部分工具链仍可能不支持或移除该元数据；遇到这种情况请勿使用类型推断，直接通过 `@Inject(Constructor)` 传入构造函数。使用类型推断时，成员类型还必须作为运行时值导入，不能使用 `import type`。
 
 ```ts
 import { Controller, HttpMethod, Inject } from 'koa-use-decorator-router';
@@ -287,7 +289,7 @@ export class UserController {
 }
 ```
 
-未使用 `@Singleton` 的注入类型会创建新实例。
+未使用 `@Singleton` 的注入类型会在控制器实例执行注入时创建新实例；默认的非单例控制器因此会在每个请求中得到新的依赖。单例控制器只在首次使用时完成属性注入，之后复用已注入的属性。
 
 ## 单例
 
@@ -338,6 +340,8 @@ export class HeaderController {
 | `privateNetworkAccess` | `boolean`              | `Access-Control-Allow-Private-Network`                       | `false`                             |
 
 推荐使用对象配置。兼容重载 `Cors(origin?, headers?, methods?)` 只支持前三个选项。数组值会使用逗号连接；未配置 `headers` 时，预检请求会回显 `Access-Control-Request-Headers`。`maxAge` 和 `privateNetworkAccess` 只用于预检响应。
+
+所有已注册路由都会添加 `Vary: Origin`。当 `credentials: true` 且 `origin: '*'` 时，实际响应和预检响应都会把 `Access-Control-Allow-Origin` 改为当前请求来源。传入多个 `origin` 时，当前实现会将它们以逗号连接后直接写入响应头，不会根据请求来源动态选择其中一项。
 
 ```ts
 import { Controller, Cors, HttpMethod, Methods } from 'koa-use-decorator-router';
@@ -398,7 +402,7 @@ export class AdminController {
 
 ## 条件装饰器
 
-`IF(condition, decorator)` 根据条件选择装饰器，可链式调用 `ELIF` 和 `ELSE`，最后必须调用 `ENDIF()`。条件在模块加载、装饰器应用时求值，不会针对每个请求重新计算。
+`IF(condition, decorator)` 根据条件选择装饰器，可链式调用 `ELIF` 和 `ELSE`，最后必须调用 `ENDIF()`。它可以包装类、方法、属性或参数装饰器，但同一条条件链中的装饰器类型应保持一致。条件在模块加载、装饰器应用时求值，不会针对每个请求重新计算。
 
 ```ts
 import { Controller, IF } from 'koa-use-decorator-router';
@@ -451,6 +455,24 @@ app.use(routerDecorator.middleware());
 routerDecorator.getRouter().url('users.detail', { id: '123' });
 // => /users/123
 ```
+
+## 公开 API 索引
+
+| 导出                                           | 用途                                |
+| ---------------------------------------------- | ----------------------------------- |
+| `decorator`                                    | 创建 Koa 路由中间件                 |
+| `Decorator`（默认导出和命名导出）              | 创建可代理 `@koa/router` 的配置实例 |
+| `Controller`、`HttpMethod`                     | 声明控制器和 HTTP 路由              |
+| `Inject`、`Context`、`Types`                   | 属性/参数注入和内置类型转换         |
+| `Singleton`                                    | 声明类级共享实例                    |
+| `ResponseHeader`                               | 声明响应头                          |
+| `Cors`、`Cross`                                | 声明 CORS；`Cross` 已废弃           |
+| `RouteMiddleware`、`createMiddlewareDecorator` | 声明或创建路由中间件装饰器          |
+| `IF`                                           | 根据加载时条件选择装饰器            |
+| `ControllerBasePathOverride`                   | 移除单个路由的控制器基础路径        |
+| `NamedRoute`                                   | 声明命名路由                        |
+| `Methods`                                      | CORS 等配置使用的 HTTP 方法枚举     |
+| `ParameterConversionError`                     | 识别内置路由参数转换错误            |
 
 ## 许可证
 

@@ -183,6 +183,8 @@ routerDecorator.acceptAnyControllerName();
 
 `@Controller(basePath)` declares the controller base path. `HttpMethod` exposes `All`, `Get`, `Post`, `Put`, `Delete`, `Options`, `Head`, and `Patch` method decorators. The return value or resolved promise from a controller method is assigned to `ctx.body`.
 
+By default, each request creates a new controller instance. A controller is reused across requests only when decorated with `@Singleton`. Only values supplied by parameter decorators are passed to a controller method; undecorated parameter positions receive `undefined`.
+
 ```ts
 import { Controller, HttpMethod } from 'koa-use-decorator-router';
 
@@ -269,7 +271,7 @@ app.use(async (ctx, next) => {
 
 ### Property injection
 
-`@Inject()` infers a constructor from `design:type` metadata, while `@Inject(Constructor)` specifies it explicitly. Reflection requires a runtime value import; do not use `import type` for the inferred property type.
+`@Inject()` without an argument relies on the TypeScript compiler or bundler to emit correct `design:type` metadata for the property. Some toolchains do not support this metadata or remove it even when `experimentalDecorators` and `emitDecoratorMetadata` are enabled. In that case, do not use type inference; pass the constructor explicitly with `@Inject(Constructor)`. Inferred types must also be imported as runtime values, not with `import type`.
 
 ```ts
 import { Controller, HttpMethod, Inject } from 'koa-use-decorator-router';
@@ -287,7 +289,7 @@ export class UserController {
 }
 ```
 
-An injected class without `@Singleton` receives a new instance.
+An injected class without `@Singleton` receives a new instance when properties are injected into a controller instance. A default, non-singleton controller therefore receives new dependencies on each request. A singleton controller performs property injection only on first use and then reuses those injected properties.
 
 ## Singletons
 
@@ -338,6 +340,8 @@ export class HeaderController {
 | `privateNetworkAccess` | `boolean`              | `Access-Control-Allow-Private-Network`                       | `false`                             |
 
 The object form is recommended. The compatibility overload `Cors(origin?, headers?, methods?)` supports only the first three options. Array values are joined with commas. When `headers` is omitted, preflight requests echo `Access-Control-Request-Headers`. `maxAge` and `privateNetworkAccess` apply only to preflight responses.
+
+Every registered route adds `Vary: Origin`. When `credentials: true` is combined with `origin: '*'`, actual and preflight responses replace `Access-Control-Allow-Origin` with the current request origin. When multiple origins are supplied, the current implementation joins them with commas and writes the result directly; it does not dynamically select one origin based on the request.
 
 ```ts
 import { Controller, Cors, HttpMethod, Methods } from 'koa-use-decorator-router';
@@ -398,7 +402,7 @@ Execution order follows these rules:
 
 ## Conditional decorators
 
-`IF(condition, decorator)` selects a decorator by condition. Chain `ELIF` and `ELSE` as needed, and always finish with `ENDIF()`. Conditions are evaluated when the module loads and decorators are applied, not once per request.
+`IF(condition, decorator)` selects a decorator by condition. Chain `ELIF` and `ELSE` as needed, and always finish with `ENDIF()`. It can wrap class, method, property, or parameter decorators, but decorators in one conditional chain should have the same kind. Conditions are evaluated when the module loads and decorators are applied, not once per request.
 
 ```ts
 import { Controller, IF } from 'koa-use-decorator-router';
@@ -451,6 +455,24 @@ app.use(routerDecorator.middleware());
 routerDecorator.getRouter().url('users.detail', { id: '123' });
 // => /users/123
 ```
+
+## Public API index
+
+| Export                                         | Purpose                                                    |
+| ---------------------------------------------- | ---------------------------------------------------------- |
+| `decorator`                                    | Creates the Koa router middleware                          |
+| `Decorator` (default and named export)         | Creates a configuration wrapper that proxies `@koa/router` |
+| `Controller`, `HttpMethod`                     | Declare controllers and HTTP routes                        |
+| `Inject`, `Context`, `Types`                   | Property/parameter injection and built-in conversions      |
+| `Singleton`                                    | Declares one shared instance for a class                   |
+| `ResponseHeader`                               | Declares response headers                                  |
+| `Cors`, `Cross`                                | Declare CORS; `Cross` is deprecated                        |
+| `RouteMiddleware`, `createMiddlewareDecorator` | Declare or create route middleware decorators              |
+| `IF`                                           | Selects a decorator from a load-time condition             |
+| `ControllerBasePathOverride`                   | Removes the controller base path from one route            |
+| `NamedRoute`                                   | Declares a named route                                     |
+| `Methods`                                      | HTTP method enum used by CORS and related options          |
+| `ParameterConversionError`                     | Identifies built-in route parameter conversion failures    |
 
 ## License
 
