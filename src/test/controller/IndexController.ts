@@ -76,10 +76,18 @@ export class RootController {
 	}
 }
 
-@Controller('normalized/')
+@Controller('///normalized///')
 export class NormalizedController {
-	@HttpMethod.Get('child')
+	@HttpMethod.Get('///child')
 	child() {
 		return 'normalized child';
+	}
+}
+
+@Controller('/internal//segment/')
+export class InternalSeparatorController {
+	@HttpMethod.Get('/child//detail')
+	detail() {
+		return 'internal separators';
 	}
 }

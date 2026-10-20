@@ -7,6 +7,7 @@ import Decorator, { decorator } from '@/index';
 
 describe('Match', () => {
 	const dir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), './controller');
+	const scanDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), './fixtures/controller-scan');
 
 	it('use string match IndexController', async () => {
 		vi.resetModules();
@@ -85,5 +86,33 @@ describe('Match', () => {
 
 		const res3 = await request(app.callback()).get('/singleton/count');
 		expect(res3.status).toBe(404);
+	});
+
+	it('scans only supported controller files in the immediate directory by default', async () => {
+		const app = new Koa();
+		app.use(decorator(scanDir));
+
+		const loaded = await request(app.callback()).get('/scan-loaded/');
+		const anyName = await request(app.callback()).get('/scan-any-name/');
+		const nested = await request(app.callback()).get('/scan-nested/');
+
+		expect(loaded.status).toBe(200);
+		expect(loaded.text).toBe('loaded');
+		expect(anyName.status).toBe(404);
+		expect(nested.status).toBe(404);
+	});
+
+	it('acceptAnyControllerName disables only the default file-name restriction', async () => {
+		const app = new Koa();
+		app.use(decorator({ controllerDir: scanDir, acceptAnyControllerName: true }));
+
+		const loaded = await request(app.callback()).get('/scan-loaded/');
+		const anyName = await request(app.callback()).get('/scan-any-name/');
+		const nested = await request(app.callback()).get('/scan-nested/');
+
+		expect(loaded.status).toBe(200);
+		expect(anyName.status).toBe(200);
+		expect(anyName.text).toBe('any name');
+		expect(nested.status).toBe(404);
 	});
 });

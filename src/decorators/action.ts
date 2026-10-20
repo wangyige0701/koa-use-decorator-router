@@ -2,14 +2,56 @@ import type Koa from 'koa';
 import type { ControllerMethod, ExposeMethods, InjectMetadata } from '@/@types';
 import { INJECT, ROUTE_METHOD, ROUTES } from '@/config';
 import { Methods, Types } from '@/enum';
+import { ParameterConversionError } from '@/error';
 import { isFunction } from '@/utils';
 
-const TypeMapFunction = {
-	[Types.Int]: (param: string) => parseInt(param, 10) || 0,
-	[Types.Float]: (param: string) => parseFloat(param) || 0,
-	[Types.String]: (param: string) => String(param),
-	[Types.Boolean]: (param: string) => param === 'true',
+const decimalPattern = /^[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:e[+-]?\d+)?$/i;
+
+const TypeMapFunction: Record<Types, (param: string) => unknown> = {
+	[Types.Int]: (param) => {
+		if (!/^[+-]?\d+$/.test(param)) {
+			throw new TypeError('expected a base-10 integer');
+		}
+		const value = Number(param);
+		if (!Number.isSafeInteger(value)) {
+			throw new RangeError('integer is outside the safe range');
+		}
+		return value;
+	},
+	[Types.Float]: (param) => {
+		if (!decimalPattern.test(param)) {
+			throw new TypeError('expected a finite decimal number');
+		}
+		const value = Number(param);
+		if (!Number.isFinite(value)) {
+			throw new RangeError('number must be finite');
+		}
+		return value;
+	},
+	[Types.String]: (param) => param,
+	[Types.Boolean]: (param) => {
+		if (param !== 'true' && param !== 'false') {
+			throw new TypeError('expected true or false');
+		}
+		return param === 'true';
+	},
 };
+
+function convertBuiltInParameter(paramName: string, param: string | undefined, type: Types) {
+	const converter = TypeMapFunction[type];
+	if (!converter) {
+		throw new TypeError(`Unsupported route parameter conversion type: ${String(type)}`);
+	}
+
+	try {
+		if (param === undefined) {
+			throw new TypeError('route parameter is missing');
+		}
+		return converter(param);
+	} catch (cause) {
+		throw new ParameterConversionError(paramName, type, { cause });
+	}
+}
 
 function Action(path: string, method: Methods): MethodDecorator {
 	return (target: any, propertyKey: string | symbol, descriptor: PropertyDescriptor) => {
@@ -32,10 +74,7 @@ function Action(path: string, method: Methods): MethodDecorator {
 				}
 				let param = params[inject.paramName] ?? void 0;
 				if (typeof inject.type === 'string') {
-					// 默认类型转换
-					if (TypeMapFunction[inject.type]) {
-						param = TypeMapFunction[inject.type](param);
-					}
+					param = convertBuiltInParameter(inject.paramName, param, inject.type);
 				} else if (isFunction(inject.type)) {
 					param = await inject.type(param);
 				}

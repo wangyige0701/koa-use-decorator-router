@@ -158,9 +158,9 @@ export class HomeController {
 }
 ```
 
-控制器基础路径和方法路径可以省略开头的 `/`，边界处多余的 `/` 会被规范化。
+控制器基础路径和方法路径可以省略开头的 `/`。注册路由时会移除控制器路径首尾以及方法路径开头多余的 `/`，然后使用一个 `/` 连接两部分；方法路径 `/` 表示控制器根路径。路径内部的重复 `/` 不会被折叠。使用 `ControllerBasePathOverride` 时会完全忽略控制器路径，仅规范化方法路径开头。
 
-Controller base paths and method paths may omit the leading `/`; redundant slashes at their boundary are normalized.
+Controller base paths and method paths may omit the leading `/`. During registration, redundant leading and trailing slashes around the controller path and leading slashes on the method path are removed, then the two parts are joined with one `/`. A method path of `/` denotes the controller root. Repeated slashes inside either path are preserved. `ControllerBasePathOverride` discards the controller path and normalizes only the beginning of the method path.
 
 - ### 单例 / Singleton
 
@@ -206,6 +206,24 @@ export class HomeService {
 
 > - a predefined enum (e.g., `Types.Int`) for built-in type conversion
 > - a custom function for transforming the value
+
+内置转换遵循以下校验规则：
+
+- `Types.Int` 只接受完整的十进制整数字符串，并且结果必须是 JavaScript 安全整数；
+- `Types.Float` 接受有限的十进制数及科学计数法，不接受 `NaN`、`Infinity`、十六进制或混合字符；
+- `Types.Boolean` 只接受区分大小写的 `true` 和 `false`；
+- `Types.String` 保留原始路由参数字符串。
+
+使用内置转换时，如果指定名称的路由参数不存在或值不合法，会抛出导出的 `ParameterConversionError`。该错误的 `status` 和 `statusCode` 均为 `400`，`code` 为 `ERR_ROUTE_PARAMETER_CONVERSION`，可以由 Koa 错误处理中间件捕获。未指定转换类型时保留原值，包括 `undefined`。自定义转换函数负责自身的返回值校验；函数抛出的错误或 Promise 拒绝原因会保持原样向上传播。
+
+Built-in conversions use the following validation rules:
+
+- `Types.Int` accepts only a complete base-10 integer string whose result is a JavaScript safe integer;
+- `Types.Float` accepts finite decimal and scientific notation, but rejects `NaN`, `Infinity`, hexadecimal, and mixed input;
+- `Types.Boolean` accepts only the case-sensitive strings `true` and `false`;
+- `Types.String` preserves the original route parameter string.
+
+When a built-in conversion is requested, a missing or invalid route parameter throws the exported `ParameterConversionError`. Its `status` and `statusCode` are `400`, and its `code` is `ERR_ROUTE_PARAMETER_CONVERSION`, so Koa error middleware can identify it. Without a conversion type, the original value is preserved, including `undefined`. Custom conversion functions own validation of their return value; thrown errors and Promise rejection reasons propagate unchanged.
 
 ```ts
 import { Controller, HttpMethod, Inject, Types } from 'koa-use-decorator-router';
@@ -444,6 +462,26 @@ app.use(decorator.middleware()).use(decorator.allowedMethods());
 ```
 
 - ### 控制器文件过滤 / Controller File Filter
+
+控制器扫描规则：
+
+- `controllerDir` 必须指向一个存在的目录，建议传入绝对路径；
+- 只扫描该目录的直接子文件，不递归扫描子目录；
+- 只处理 `.js`、`.ts`、`.mjs`、`.mts`、`.cjs` 和 `.cts` 文件，并忽略声明文件；
+- 默认要求文件基名匹配 `^\w+Controller$`，匹配区分大小写；
+- `acceptAnyControllerName` 只关闭文件名限制，不会放开目录、文件类型或递归规则；
+- `matchFileName` 在上述扫描规则之后执行，接收不含扩展名的文件基名及扩展名；
+- 模块中只有带有 `@Controller` 且基础路径为非空字符串的导出会注册路由，其他导出会被忽略；模块导入失败会导致初始化失败，并进入 Koa 错误处理链。
+
+Controller scanning rules:
+
+- `controllerDir` must point to an existing directory; an absolute path is recommended;
+- only direct child files are scanned; subdirectories are not scanned recursively;
+- only `.js`, `.ts`, `.mjs`, `.mts`, `.cjs`, and `.cts` files are considered, and declaration files are ignored;
+- by default, the file base name must match `^\w+Controller$`, case-sensitively;
+- `acceptAnyControllerName` disables only the file-name restriction; it does not enable directories, other file types, or recursive scanning;
+- `matchFileName` runs after these scanning rules and receives the base name without its extension plus the extension;
+- only exports decorated with `@Controller` whose base path is a non-empty string register routes; other exports are ignored. A module import failure fails initialization and is forwarded through the Koa error chain.
 
 通过函数创建 / Create a custom filter function
 
