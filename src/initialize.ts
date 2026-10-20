@@ -85,17 +85,15 @@ export async function initialize(
 			}
 
 			// 是否覆写控制器基础路径
-			const isOverrideControllerPath = Reflect.getMetadata(ROUTE_OVERRIDE, controllerClass) || false;
 			const routes = (Reflect.getMetadata(ROUTES, controllerClass) || []) as ControllerMethod[];
 			for (const routeItem of routes) {
+				const handler = routeItem.handler;
+				const isOverrideControllerPath = Reflect.getMetadata(ROUTE_OVERRIDE, controllerClass, handler) || false;
 				// 只在设置 route 时重写一次函数体，避免嵌套过多
-				// 覆写控制器基础路径时，将 base 设置为根路径
-				const _base = getBasePath(controllerPath, isOverrideControllerPath);
 				const _path = getRoutePath(routeItem);
 				// 路径规则整理，确保路径以 / 开头，避免重复
-				const path = _base + (_path === '/' ? '' : _path);
+				const path = mergePath(controllerPath, _path, isOverrideControllerPath);
 				const method = routeItem.method.toLowerCase() as RouteMethods;
-				const handler = routeItem.handler;
 
 				const strParams = [path] as [path: string];
 				if (Reflect.hasMetadata(ROUTE_NAME, controllerClass, handler)) {
@@ -178,8 +176,19 @@ export async function initialize(
 	}
 }
 
-function getBasePath(controllerPath: string, isOverrideControllerPath: boolean) {
-	return isOverrideControllerPath ? '/' : controllerPath.endsWith('/') ? controllerPath.slice(0, -1) : controllerPath;
+function mergePath(controllerPath: string, routePath: string, isOverrideControllerPath: boolean) {
+	const base = isOverrideControllerPath
+		? '/'
+		: controllerPath.endsWith('/')
+			? controllerPath.slice(0, -1)
+			: controllerPath;
+	if (routePath === '/') {
+		return base || '/';
+	}
+	if (isOverrideControllerPath) {
+		return routePath.startsWith('/') ? routePath : '/' + routePath;
+	}
+	return base + routePath;
 }
 
 function getRoutePath(routeItem: ControllerMethod) {

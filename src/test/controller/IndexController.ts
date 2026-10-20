@@ -49,7 +49,7 @@ export class IndexController {
 	}
 
 	@ControllerBasePathOverride()
-	@HttpMethod.Get('/override')
+	@HttpMethod.Get('/overrideBasePath')
 	override() {
 		return 'override';
 	}
