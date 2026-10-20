@@ -71,6 +71,20 @@ describe('Controller', () => {
 		expect(res2.status).toBe(200);
 	});
 
+	it('should normalize root and missing path separators', async () => {
+		const root = await request(app.callback()).get('/');
+		expect(root.status).toBe(200);
+		expect(root.text).toBe('root');
+
+		const rootChild = await request(app.callback()).get('/child');
+		expect(rootChild.status).toBe(200);
+		expect(rootChild.text).toBe('root child');
+
+		const normalized = await request(app.callback()).get('/normalized/child');
+		expect(normalized.status).toBe(200);
+		expect(normalized.text).toBe('normalized child');
+	});
+
 	it('should return object', async () => {
 		const res = await request(app.callback()).get('/index/object');
 		expect(res.body).toEqual({

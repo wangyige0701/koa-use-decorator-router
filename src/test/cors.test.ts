@@ -32,6 +32,7 @@ describe('Cors / Cross decorators', () => {
 		expect(res.headers['access-control-allow-headers']).toBeUndefined();
 		// method-level Cors writes the current route method as allowed method
 		expect(res.headers['access-control-allow-methods']).toBe('GET');
+		expect(res.headers.vary).toContain('Origin');
 	});
 
 	it('OPTIONS preflight should return 204 and echo request headers when no configured headers', async () => {
@@ -96,6 +97,9 @@ describe('Cors / Cross decorators', () => {
 		expect(res.headers['access-control-allow-origin']).toBe('https://post.example.com');
 		expect(res.headers['access-control-allow-headers']).toBe('X-Post-Header');
 		expect(res.headers['access-control-allow-methods']).toBe('POST');
+		expect(res.headers['access-control-allow-credentials']).toBe('true');
+		expect(res.headers['cross-origin-opener-policy']).toBe('same-origin');
+		expect(res.headers['cross-origin-embedder-policy']).toBe('require-corp');
 
 		const pre = await request(app.callback())
 			.options('/cors/post')
@@ -110,6 +114,17 @@ describe('Cors / Cross decorators', () => {
 		expect(pre.headers['cross-origin-opener-policy']).toBe('same-origin');
 		expect(pre.headers['cross-origin-embedder-policy']).toBe('require-corp');
 		expect(pre.headers['access-control-allow-private-network']).toBe('true');
+	});
+
+	it('preserves CORS headers when route middleware throws', async () => {
+		const app = createApp();
+		const res = await request(app.callback()).get('/cors/error').set('Origin', 'https://client.example.com');
+
+		expect(res.status).toBe(418);
+		expect(res.headers['access-control-allow-origin']).toBe('https://error.example.com');
+		expect(res.headers['access-control-allow-credentials']).toBe('true');
+		expect(res.headers['access-control-allow-methods']).toBe('GET');
+		expect(res.headers.vary).toContain('Origin');
 	});
 
 	it('wildcard origin with credentials true should echo request origin on GET and OPTIONS', async () => {

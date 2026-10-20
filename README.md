@@ -41,6 +41,10 @@ npm install koa-use-decorator-router
 
 > The controller file must export a class decorated with `@Controller`.
 
+> 每个 `decorator()` 中间件实例只会扫描一次控制器目录并注册一次路由。初始化在创建中间件时启动，请求会等待初始化完成；初始化失败时，错误会进入 Koa 中间件错误处理链。
+
+> Each `decorator()` middleware instance scans the controller directory and registers routes only once. Initialization starts when the middleware is created, requests wait for it to finish, and initialization failures are forwarded through Koa's middleware error chain.
+
 - ### 声明 / Declaration
 
 ESM Module
@@ -154,13 +158,17 @@ export class HomeController {
 }
 ```
 
+控制器基础路径和方法路径可以省略开头的 `/`，边界处多余的 `/` 会被规范化。
+
+Controller base paths and method paths may omit the leading `/`; redundant slashes at their boundary are normalized.
+
 - ### 单例 / Singleton
 
-单例装饰器不会修改或重写类的构造函数，而是在内部维护一个单例实例，插件生命周期内会复用该实例。
+单例装饰器不会修改或重写类的构造函数，而是为被装饰的类维护一个共享实例。注入同一构造函数的多个控制器和 `decorator()` 实例都会复用该实例。
 
 非控制器目录下的其它类也可以使用 `@Singleton` 装饰器。
 
-The `@Singleton` decorator does not modify or override the class constructor. Instead, it internally manages a single shared instance, which is reused whenever the class is instantiated within the plugin lifecycle.
+The `@Singleton` decorator does not modify or override the class constructor. Instead, it maintains one shared instance for the decorated class. Controllers and `decorator()` instances that inject the same constructor reuse that instance.
 
 Classes outside the controller directory can also use the `@Singleton` decorator.
 
@@ -410,6 +418,10 @@ export class HomeController {
 }
 ```
 
+`ControllerBasePathOverride` 会完全移除当前方法的控制器基础路径；覆盖后的 `/` 方法路径仍表示应用根路径。
+
+`ControllerBasePathOverride` completely removes the controller base path for the decorated method, and an overridden method path of `/` still represents the application root.
+
 - ### 路由实例方法代理 / Router Method Proxying
 
 ```ts
@@ -551,9 +563,9 @@ export class MiddlewareController {
 }
 ```
 
-类级中间件会在方法级中间件之前执行，多个中间件按声明顺序合并。
+类级中间件会在方法级中间件之前执行。连续声明多个由 `createMiddlewareDecorator` 创建的装饰器时，中间件按照代码中从上到下的顺序执行；同一个装饰器接收的多个中间件按照参数顺序执行。
 
-Class-level middleware will execute before method-level middleware, and multiple middleware will be merged in order of declaration.
+Class-level middleware executes before method-level middleware. When multiple decorators created by `createMiddlewareDecorator` are stacked, their middleware executes from top to bottom as written; multiple middleware passed to one decorator execute in argument order.
 
 - ### 命名路由 / Named Route (>= 1.1.0)
 

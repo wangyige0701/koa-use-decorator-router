@@ -1,5 +1,5 @@
 import { Controller } from '@/decorators/controller';
-import { HttpMethod, Cors, Cross } from '@/index';
+import { HttpMethod, Cors, Cross, RouteMiddleware } from '@/index';
 import { Methods } from '@/index';
 
 @Controller('/cors')
@@ -57,6 +57,15 @@ export class CorsController {
 	@HttpMethod.Get('/origin-array')
 	originArray() {
 		return 'origin-array';
+	}
+
+	@Cors({ origin: 'https://error.example.com', credentials: true })
+	@RouteMiddleware((ctx) => {
+		ctx.throw(418, 'cors middleware error');
+	})
+	@HttpMethod.Get('/error')
+	error() {
+		return 'handler should not run';
 	}
 
 	// route without cors to test OPTIONS passthrough

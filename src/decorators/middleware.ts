@@ -14,14 +14,14 @@ export function createMiddlewareDecorator(...middlewares: Middleware[]) {
 		return (target: any, propertyKey?: string | symbol, descriptor?: PropertyDescriptor) => {
 			if (!propertyKey) {
 				const middlewaresList = (Reflect.getMetadata(ROUTE_MIDDLEWARES, target) || []) as Middleware[];
-				middlewaresList.push(...middlewares);
+				middlewaresList.unshift(...middlewares);
 				Reflect.defineMetadata(ROUTE_MIDDLEWARES, middlewaresList, target);
 				return target;
 			}
 
 			const middlewaresList = (Reflect.getMetadata(ROUTE_MIDDLEWARES, target.constructor, propertyKey) ||
 				[]) as Middleware[];
-			middlewaresList.push(...middlewares);
+			middlewaresList.unshift(...middlewares);
 			Reflect.defineMetadata(ROUTE_MIDDLEWARES, middlewaresList, target.constructor, propertyKey);
 			return descriptor;
 		};

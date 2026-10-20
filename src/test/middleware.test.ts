@@ -28,4 +28,77 @@ describe('RouteMiddleware', () => {
 		expect(res3.headers['x-class']).toBe('1');
 		expect(res3.headers['x-test']).toBe('test');
 	});
+
+	it('should preserve onion order across class and method middlewares', async () => {
+		const app = new Koa();
+		const decorator = new Decorator(dir);
+		decorator.matchFileName('MiddlewareController');
+		app.use(decorator.middleware());
+
+		const res = await request(app.callback()).get('/mw/order');
+		expect(res.status).toBe(200);
+		expect(res.text).toBe('ordered');
+		expect(res.headers['x-order']).toBe(
+			'class-before,method-1-before,method-2-before,handler,method-2-after,method-1-after,class-after',
+		);
+	});
+
+	it('should execute stacked method decorators created by createMiddlewareDecorator in declaration order', async () => {
+		const app = new Koa();
+		const decorator = new Decorator(dir);
+		decorator.matchFileName('MiddlewareController');
+		app.use(decorator.middleware());
+
+		const res = await request(app.callback()).get('/mw/created-order');
+		expect(res.status).toBe(200);
+		expect(res.text).toBe('created order');
+		expect(res.headers['x-created-order']).toBe(
+			'class-before,first-before,second-before,handler,second-after,first-after',
+		);
+	});
+
+	it('should execute stacked class decorators created by createMiddlewareDecorator in declaration order', async () => {
+		const app = new Koa();
+		const decorator = new Decorator(dir);
+		decorator.matchFileName('MiddlewareController');
+		app.use(decorator.middleware());
+
+		const res = await request(app.callback()).get('/mw-created-class-order/');
+		expect(res.status).toBe(200);
+		expect(res.text).toBe('created class order');
+		expect(res.headers['x-created-order']).toBe('first-before,second-before,handler,second-after,first-after');
+	});
+
+	it('should allow route middleware to short-circuit the handler', async () => {
+		const app = new Koa();
+		const decorator = new Decorator(dir);
+		decorator.matchFileName('MiddlewareController');
+		app.use(decorator.middleware());
+
+		const res = await request(app.callback()).get('/mw/short-circuit');
+		expect(res.status).toBe(202);
+		expect(res.text).toBe('short-circuited');
+		expect(res.headers['x-order']).toBe('class-before,class-after');
+	});
+
+	it('should propagate route middleware errors without running the handler', async () => {
+		const app = new Koa();
+		let error: unknown;
+		app.use(async (_ctx, next) => {
+			try {
+				await next();
+			} catch (cause) {
+				error = cause;
+				throw cause;
+			}
+		});
+		const decorator = new Decorator(dir);
+		decorator.matchFileName('MiddlewareController');
+		app.use(decorator.middleware());
+
+		const res = await request(app.callback()).get('/mw/error');
+		expect(res.status).toBe(418);
+		expect(error).toMatchObject({ status: 418, message: 'middleware error' });
+		expect(res.headers['x-order']).toBeUndefined();
+	});
 });

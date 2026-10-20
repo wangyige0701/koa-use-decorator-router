@@ -62,3 +62,24 @@ export class IndexController {
 		};
 	}
 }
+
+@Controller('/')
+export class RootController {
+	@HttpMethod.Get('/')
+	root() {
+		return 'root';
+	}
+
+	@HttpMethod.Get('/child')
+	child() {
+		return 'root child';
+	}
+}
+
+@Controller('normalized/')
+export class NormalizedController {
+	@HttpMethod.Get('child')
+	child() {
+		return 'normalized child';
+	}
+}
