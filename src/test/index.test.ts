@@ -85,6 +85,13 @@ describe('Controller', () => {
 		expect(normalized.text).toBe('normalized child');
 	});
 
+	it('should preserve repeated separators inside controller and method paths', async () => {
+		const response = await request(app.callback()).get('/internal//segment/child//detail');
+
+		expect(response.status).toBe(200);
+		expect(response.text).toBe('internal separators');
+	});
+
 	it('should return object', async () => {
 		const res = await request(app.callback()).get('/index/object');
 		expect(res.body).toEqual({

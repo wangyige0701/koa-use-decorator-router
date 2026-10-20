@@ -41,6 +41,9 @@ import {
 	CROSS_ORIGIN_OPENER_POLICY,
 } from './headers';
 
+const supportedControllerExtensions = new Set(['.js', '.ts', '.mjs', '.mts', '.cjs', '.cts']);
+const defaultControllerNamePattern = /^\w+Controller$/;
+
 /**
  * 初始化路由
  * @param route Router 实例
@@ -59,14 +62,25 @@ export async function initialize(
 	}
 
 	const matchRule = handleMatchRules(match);
-	const files = fs.readdirSync(controllerDir);
-	for (const file of files) {
-		if (!acceptAnyControllerName && !/^[\w]+Controller\.(m|c)?(js|ts)$/.test(file)) {
+	const entries = fs.readdirSync(controllerDir, { withFileTypes: true });
+	for (const entry of entries) {
+		if (!entry.isFile()) {
+			continue;
+		}
+
+		const file = entry.name;
+		const suffix = path.extname(file);
+		const fileName = path.basename(file, suffix);
+		if (
+			!supportedControllerExtensions.has(suffix) ||
+			fileName.endsWith('.d') ||
+			(!acceptAnyControllerName && !defaultControllerNamePattern.test(fileName))
+		) {
 			continue;
 		}
 
 		// 筛选文件名
-		if (isFunction(matchRule) && !matchRule(path.basename(file, path.extname(file)), path.extname(file))) {
+		if (isFunction(matchRule) && !matchRule(fileName, suffix)) {
 			continue;
 		}
 
